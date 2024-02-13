@@ -5,46 +5,46 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import shop.mtcoding.blog.user.User;
+import shop.mtcoding.blog.user.UserRepository;
+import shop.mtcoding.blog.user.UserRequest;
 
+import java.sql.PreparedStatement;
 
-@RequiredArgsConstructor // final이 붙은 애들에 대한 생성자를 만들어줌
+@RequiredArgsConstructor // final 붙은 애들에 대한 생성자 생성
 @Controller
 public class UserController {
 
-    // 자바는 final 변수는 반드시 초기화가 되어야함.
+    // 자바는 final 변수는 반드시 초기화 되어야한다.
     private final UserRepository userRepository;
     private final HttpSession session;
 
-    // 왜 조회인데 post임? 민간함 정보는 body로 보낸다.
-    // 로그인만 예외로 select인데 post 사용
-    // select * from user_tb where username=? and password=?
-@PostMapping("/login")
-public String login(UserRequest.LoginDTO requestDTO){
-
-
-    System.out.println(requestDTO); // toString -> @Data
-
-    if(requestDTO.getUsername().length() < 3){
-        return "error/400"; // ViewResolver 설정이 되어 있음. (앞 경로, 뒤 경로)
-    }
-
-    User user = userRepository.findByUsernameAndPassword(requestDTO);
-
-    if(user == null){ // 조회 안됨 (401)
-        return "error/401";
-    }else{ // 조회 됐음 (인증됨)
-        session.setAttribute("sessionUser", user); // 락카에 담음 (StateFul)
-    }
-
-    return "redirect:/"; // 컨트롤러가 존재하면 무조건 redirect 외우기
-}
+//    @PostMapping("/login")
+//    public String login(UserRequest.LoginDTO requestDTO) {
+//        System.out.println(requestDTO);
+//
+//        if (requestDTO.getUsername().length() < 3) {
+//            return "error/400"; // ViewResolver 설정이 되어 있음 (앞 경로, 뒤 경로)
+//        }
+//
+//        User user = userRepository.findByUsernameAndPassword(requestDTO);
+//
+//        if (user == null) { // 조회 안됨 (401)
+//            return "error/401";
+//        } else {
+//            session.setAttribute("sessionUser", user); // 락카에 담음 (StateFul)
+//        }
+//
+//        return "redirect:/";
+//    }
 
     @PostMapping("/join")
-    public String join(UserRequest.JoinDTO requestDTO){
+    public String join(UserRequest.JoinDTO requestDTO) {
         System.out.println(requestDTO);
 
-        userRepository.save(requestDTO); // 모델에 위임하기
+        userRepository.save(requestDTO); // Request 한 값을 저장 시킨다.
         return "redirect:/loginForm";
     }
 
@@ -58,13 +58,37 @@ public String login(UserRequest.LoginDTO requestDTO){
         return "user/loginForm";
     }
 
+    @PostMapping("/user/update")
+    public String update(UserRequest.UpdateDTO requestDTO, HttpServletRequest request) {
+        // 1. 인증 체크
+        User sessionUser = (User) session.getAttribute("sessionUser");
+        if (sessionUser == null) {
+            return "redirect:/loginForm";
+        }
+
+        request.setAttribute("requestUser", sessionUser);
+        User requestUser = (User) request.getAttribute("requestUser");
+
+        userRepository.update(requestDTO, requestUser.getId());
+        requestUser.setPassword(requestDTO.getPassword());
+        session.setAttribute("sessionUser", requestUser);
+
+        return "redirect:/logout";
+    }
+
     @GetMapping("/user/updateForm")
-    public String updateForm() {
+    public String updateForm(HttpServletRequest request) {
+        User sessionUser = (User) session.getAttribute("sessionUser");
+        if (sessionUser == null) {
+            return "redirect:/loginForm";
+        }
+
         return "user/updateForm";
     }
 
     @GetMapping("/logout")
     public String logout() {
+        session.invalidate(); // 세션을 완전히 삭제. 서랍 비우기.
         return "redirect:/";
     }
 }
