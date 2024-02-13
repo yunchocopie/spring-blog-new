@@ -3,10 +3,13 @@ package shop.mtcoding.blog.user;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import shop.mtcoding.blog._core.config.security.MyLoginUser;
 import shop.mtcoding.blog.user.User;
 import shop.mtcoding.blog.user.UserRepository;
 import shop.mtcoding.blog.user.UserRequest;
@@ -20,6 +23,7 @@ public class UserController {
     // 자바는 final 변수는 반드시 초기화 되어야한다.
     private final UserRepository userRepository;
     private final HttpSession session;
+    private final BCryptPasswordEncoder passwordEncoder;
 
 //    @PostMapping("/login")
 //    public String login(UserRequest.LoginDTO requestDTO) {
@@ -43,6 +47,9 @@ public class UserController {
     @PostMapping("/join")
     public String join(UserRequest.JoinDTO requestDTO) {
         System.out.println(requestDTO);
+
+        String rawPassword = requestDTO.getPassword();
+        String encPassword = passwordEncoder.encode(rawPassword);
 
         userRepository.save(requestDTO); // Request 한 값을 저장 시킨다.
         return "redirect:/loginForm";
@@ -77,7 +84,8 @@ public class UserController {
     }
 
     @GetMapping("/user/updateForm")
-    public String updateForm(HttpServletRequest request) {
+    public String updateForm(HttpServletRequest request, @AuthenticationPrincipal MyLoginUser myLoginUser) {
+        User user = userRepository.findByUsername(myLoginUser.getUsername());
         User sessionUser = (User) session.getAttribute("sessionUser");
         if (sessionUser == null) {
             return "redirect:/loginForm";
